@@ -246,7 +246,7 @@ export default function Home() {
               error={wsError}
               isComplete={isComplete}
               onReset={resetWS}
-              historyContent={historyDetailedAnalysis}
+              historyContent={historyDetailedAnalysis || undefined}
               historyScore={historyScore}
             />
           </div>

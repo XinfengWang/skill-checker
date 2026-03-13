@@ -26,8 +26,10 @@ const server = createServer(app);
 const wss = new WebSocketServer({ server });
 
 // Middleware
+// In production (Electron), frontend is loaded via file:// protocol
+// So we need to allow all origins or use a custom protocol
 app.use(cors({
-  origin: ['http://localhost:3002', 'http://127.0.0.1:3002'],
+  origin: true, // Allow all origins for Electron app
   credentials: true
 }));
 app.use(express.json());

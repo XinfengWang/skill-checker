@@ -1,14 +1,114 @@
 {
-  "name": "project-skill-checker",
+  "name": "skill-checker",
   "version": "1.0.0",
   "description": "Skill quality checker with AI analysis",
+  "main": "electron/main.js",
   "scripts": {
     "frontend": "cd frontend && npm run dev",
     "backend": "cd backend-ts && npm run dev",
     "install:all": "cd frontend && npm install && cd ../backend-ts && npm install",
-    "dev": "npm run backend & npm run frontend"
+    "dev": "concurrently \"npm run backend\" \"npm run frontend\"",
+    "electron:dev": "concurrently \"npm run backend\" \"npm run frontend\" \"wait-on http://localhost:3002 && electron .\"",
+    "build:frontend": "cd frontend && npm run build",
+    "build:backend": "cd backend-ts && npm run build",
+    "build": "npm run build:backend && npm run build:frontend",
+    "electron:build": "npm run build && electron-builder",
+    "electron:build:mac": "npm run build && electron-builder --mac",
+    "electron:build:mac-arm": "npm run build && electron-builder --mac --arm64",
+    "dist": "npm run build && electron-builder --publish never"
   },
-  "keywords": ["skill", "ai", "claude"],
+  "keywords": [
+    "skill",
+    "ai",
+    "claude"
+  ],
   "author": "",
-  "license": "ISC"
+  "license": "MIT",
+  "build": {
+    "appId": "com.skill-checker.app",
+    "productName": "Skill Checker",
+    "directories": {
+      "output": "dist",
+      "buildResources": "electron/assets"
+    },
+    "files": [
+      "electron/**/*",
+      "frontend/out/**/*",
+      "!backend-ts/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "backend-ts/package.json",
+        "to": "backend-ts/package.json"
+      },
+      {
+        "from": "backend-ts/dist",
+        "to": "backend-ts/dist",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "backend-ts/data",
+        "to": "backend-ts/data",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "backend-ts/node_modules",
+        "to": "backend-ts/node_modules",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "mac": {
+      "category": "public.app-category.developer-tools",
+      "icon": "electron/assets/icon.png",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "electron/entitlements.mac.plist",
+      "entitlementsInherit": "electron/entitlements.mac.plist"
+    },
+    "afterPack": "./scripts/rebuild-native.js",
+    "dmg": {
+      "contents": [
+        {
+          "x": 130,
+          "y": 220
+        },
+        {
+          "x": 410,
+          "y": 220,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ]
+    }
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "better-sqlite3": "^12.6.2",
+    "concurrently": "^9.1.2",
+    "electron": "^35.1.2",
+    "electron-builder": "^25.1.8",
+    "wait-on": "^8.0.3"
+  }
 }
