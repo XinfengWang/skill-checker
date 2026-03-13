@@ -4,7 +4,6 @@ import { SkillAnalysisResult } from "../page";
 
 interface AnalysisResultProps {
   result: SkillAnalysisResult;
-  onReset: () => void;
 }
 
 function ScoreRing({ score, label, color }: { score: number; label: string; color: string }) {
@@ -72,24 +71,15 @@ function SeverityIcon({ severity }: { severity: "error" | "warning" | "info" }) 
   );
 }
 
-export function AnalysisResult({ result, onReset }: AnalysisResultProps) {
-  const scoreColor = getScoreColor(result.overall_score);
+export function AnalysisResult({ result }: AnalysisResultProps) {
   const gradientClass = getScoreGradient(result.overall_score);
 
   return (
     <div className="space-y-8">
       {/* Header with Overall Score */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-zinc-100">Analysis Complete</h2>
-          <p className="text-zinc-500 mt-1">{result.summary}</p>
-        </div>
-        <button
-          onClick={onReset}
-          className="px-4 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-sm font-medium transition-colors"
-        >
-          Analyze Another
-        </button>
+      <div>
+        <h2 className="text-2xl font-bold text-zinc-100">Analysis Complete</h2>
+        <p className="text-zinc-500 mt-1">{result.summary}</p>
       </div>
 
       {/* Overall Score Card */}

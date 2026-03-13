@@ -13,6 +13,9 @@ interface StreamOutputProps {
   finalResult: SkillAnalysisResult | null;
   error: string | null;
   isComplete: boolean;
+  onReset?: () => void;
+  historyContent?: string; // 历史记录的详细分析内容
+  historyScore?: number; // 历史记录的分数
 }
 
 // Step display configuration
@@ -29,7 +32,10 @@ export function StreamOutput({
   currentStep,
   finalResult,
   error,
-  isComplete
+  isComplete,
+  onReset,
+  historyContent,
+  historyScore
 }: StreamOutputProps) {
   const contentRef = useRef<HTMLDivElement>(null);
 
@@ -79,15 +85,43 @@ export function StreamOutput({
       {/* Header */}
       <div className="flex-shrink-0 flex items-center justify-between px-4 py-3 border-b border-zinc-800">
         <div className="flex items-center gap-2">
-          <div className={`w-2 h-2 rounded-full ${getStatusColor()} ${connectionStatus === 'connecting' ? 'animate-pulse' : ''}`} />
-          <span className="text-sm text-zinc-400">{getStatusText()}</span>
+          {historyContent ? (
+            <>
+              <div className="w-2 h-2 rounded-full bg-violet-500" />
+              <span className="text-sm text-zinc-400">History Record</span>
+            </>
+          ) : (
+            <>
+              <div className={`w-2 h-2 rounded-full ${getStatusColor()} ${connectionStatus === 'connecting' ? 'animate-pulse' : ''}`} />
+              <span className="text-sm text-zinc-400">{getStatusText()}</span>
+            </>
+          )}
         </div>
-        {currentStep && stepDisplay && (
-          <div className="flex items-center gap-2 px-3 py-1 bg-violet-500/10 rounded-full">
-            <span>{stepDisplay.icon}</span>
-            <span className="text-sm text-violet-400">{stepDisplay.label}</span>
-          </div>
-        )}
+        <div className="flex items-center gap-2">
+          {historyContent && (
+            <div className="flex items-center gap-2 px-3 py-1 bg-violet-500/10 rounded-full">
+              <span>📋</span>
+              <span className="text-sm text-violet-400">Detailed Analysis</span>
+            </div>
+          )}
+          {currentStep && stepDisplay && !historyContent && (
+            <div className="flex items-center gap-2 px-3 py-1 bg-violet-500/10 rounded-full">
+              <span>{stepDisplay.icon}</span>
+              <span className="text-sm text-violet-400">{stepDisplay.label}</span>
+            </div>
+          )}
+          {onReset && (streamingContent || finalResult || error || historyContent) && (
+            <button
+              onClick={onReset}
+              className="p-1.5 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 rounded-lg transition-colors"
+              title="Clear output"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Content area - Fixed height with scroll */}
@@ -115,22 +149,29 @@ export function StreamOutput({
           </div>
         )}
 
+        {/* History content */}
+        {historyContent && (
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+            {historyContent}
+          </ReactMarkdown>
+        )}
+
         {/* Streaming content with Markdown rendering */}
-        {streamingContent && (
+        {streamingContent && !historyContent && (
           <ReactMarkdown remarkPlugins={[remarkGfm]}>
             {streamingContent}
           </ReactMarkdown>
         )}
 
         {/* Waiting state */}
-        {!streamingContent && !finalResult && !error && (
+        {!streamingContent && !finalResult && !error && !historyContent && (
           <div className="flex items-center justify-center h-full text-zinc-500 not-prose">
             <p>Waiting for analysis to start...</p>
           </div>
         )}
 
         {/* Complete indicator */}
-        {isComplete && !error && (
+        {isComplete && !error && !historyContent && (
           <div className="mt-4 pt-4 border-t border-zinc-800 not-prose">
             <div className="flex items-center gap-2 text-emerald-400">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -143,12 +184,18 @@ export function StreamOutput({
       </div>
 
       {/* Footer with stats */}
-      {(streamingContent || finalResult) && (
+      {(streamingContent || finalResult || historyContent) && (
         <div className="flex-shrink-0 px-4 py-2 border-t border-zinc-800 text-xs text-zinc-500">
           <div className="flex items-center justify-between">
-            <span>{streamingContent.length} characters received</span>
-            {finalResult && (
-              <span className="text-violet-400">Score: {finalResult.overall_score}/100</span>
+            <span>
+              {historyContent
+                ? `${historyContent.length} characters`
+                : `${streamingContent.length} characters received`}
+            </span>
+            {(finalResult || historyScore !== undefined) && (
+              <span className="text-violet-400">
+                Score: {historyScore !== undefined ? historyScore : finalResult?.overall_score}/100
+              </span>
             )}
           </div>
         </div>

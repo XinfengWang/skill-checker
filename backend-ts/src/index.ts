@@ -9,6 +9,14 @@ import { createServer } from 'http';
 import { WebSocketServer, WebSocket } from 'ws';
 import 'dotenv/config';
 import { query } from '@anthropic-ai/claude-agent-sdk';
+import {
+  saveAnalysis,
+  getHistoryList,
+  getHistoryById,
+  deleteHistory,
+  closeDatabase,
+  AnalysisHistoryRecord
+} from './database';
 
 const app = express();
 const PORT = process.env.PORT || 8002;
@@ -52,6 +60,24 @@ interface AnalysisResponse {
   result?: SkillAnalysisResult;
   error?: string;
   sessionId?: string;
+}
+
+// History API response types
+interface HistoryListResponse {
+  success: boolean;
+  data?: {
+    data: any[];
+    total: number;
+    page: number;
+    limit: number;
+  };
+  error?: string;
+}
+
+interface HistoryDetailResponse {
+  success: boolean;
+  data?: AnalysisHistoryRecord;
+  error?: string;
 }
 
 // WebSocket message types
@@ -435,6 +461,24 @@ app.post('/api/analyze', upload.single('file'), async (req: Request, res: Respon
 
     const result = await analyzeSkillWithClaude(filesContent, streamCallback);
 
+    // Save result to database
+    try {
+      saveAnalysis({
+        sessionId,
+        fileName: originalName,
+        overallScore: result.overall_score,
+        dimensions: result.dimensions,
+        issues: result.issues,
+        suggestions: result.suggestions,
+        summary: result.summary,
+        detailedAnalysis: result.detailed_analysis
+      });
+      console.log(`Analysis saved to database: session=${sessionId}`);
+    } catch (dbError) {
+      console.error('Failed to save analysis to database:', dbError);
+      // Don't fail the request if database save fails
+    }
+
     // Send final result
     const finalWs = sessions.get(sessionId);
     if (finalWs) {
@@ -473,8 +517,115 @@ app.get('/health', (req: Request, res: Response) => {
   res.json({ status: 'healthy' });
 });
 
+// History API Routes
+
+// Get history list with pagination
+app.get('/api/history', (req: Request, res: Response) => {
+  try {
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 20;
+
+    const result = getHistoryList(page, limit);
+
+    res.json({
+      success: true,
+      data: result
+    } as HistoryListResponse);
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to get history'
+    } as HistoryListResponse);
+  }
+});
+
+// Get single history record by ID
+app.get('/api/history/:id', (req: Request, res: Response) => {
+  try {
+    const id = parseInt(req.params.id);
+
+    if (isNaN(id)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid history ID'
+      } as HistoryDetailResponse);
+    }
+
+    const record = getHistoryById(id);
+
+    if (!record) {
+      return res.status(404).json({
+        success: false,
+        error: 'History record not found'
+      } as HistoryDetailResponse);
+    }
+
+    res.json({
+      success: true,
+      data: record
+    } as HistoryDetailResponse);
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to get history'
+    } as HistoryDetailResponse);
+  }
+});
+
+// Delete history record
+app.delete('/api/history/:id', (req: Request, res: Response) => {
+  try {
+    const id = parseInt(req.params.id);
+
+    if (isNaN(id)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid history ID'
+      });
+    }
+
+    const deleted = deleteHistory(id);
+
+    if (!deleted) {
+      return res.status(404).json({
+        success: false,
+        error: 'History record not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'History deleted successfully'
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to delete history'
+    });
+  }
+});
+
 // Start server with WebSocket support
 server.listen(PORT, () => {
   console.log(`Skill Checker Backend running on http://localhost:${PORT}`);
   console.log(`WebSocket server running on ws://localhost:${PORT}`);
+});
+
+// Graceful shutdown
+process.on('SIGINT', () => {
+  console.log('Shutting down gracefully...');
+  closeDatabase();
+  server.close(() => {
+    console.log('Server closed');
+    process.exit(0);
+  });
+});
+
+process.on('SIGTERM', () => {
+  console.log('Shutting down gracefully...');
+  closeDatabase();
+  server.close(() => {
+    console.log('Server closed');
+    process.exit(0);
+  });
 });
